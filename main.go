@@ -10,7 +10,16 @@ import (
 
 	"github.com/fluent/fluent-bit-go/output"
 
+	"context"
+
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/flight"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/itchyny/timefmt-go"
+	"google.golang.org/grpc"
+
+	"github.com/apache/arrow/go/v8/arrow/ipc"
 )
 
 const PluginName = "arrow"
@@ -78,6 +87,8 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 			default:
 				strVal = fmt.Sprintf("%v", v)
 			}
+
+			sendPayload()
 		}
 	}
 
@@ -111,6 +122,67 @@ func createPluginConfig(timeFields string, serverUrl string) (PluginCfg, error) 
 	}
 
 	return pluginCfg, nil
+}
+
+func sendPayload() {
+	//creating client
+	conn, err := grpc.Dial("localhost:8082", grpc.WithInsecure())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	client := flight.NewFlightServiceClient(conn)
+
+	pool := memory.NewGoAllocator()
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			//{Name: "f2-f64", Type: arrow.TIMESTAMP},
+		},
+		nil,
+	)
+
+	b := array.NewRecordBuilder(pool, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4, 5, 6}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{7, 8, 9, 10}, []bool{true, true, false, true})
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	putClient, err := client.DoPut(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	wtr := flight.NewRecordWriter(putClient, ipc.WithSchema(schema))
+	if wtr == nil {
+		log.Fatal("wrtr null ...")
+	} else {
+		log.Print("wrtr not null ")
+	}
+	defer wtr.Close()
+
+	desc := &flight.FlightDescriptor{
+		Type: flight.DescriptorUNKNOWN,
+	}
+	wtr.SetFlightDescriptor(desc)
+	/*fields := rec.Schema().Fields()
+	  log.Print("schema :" + rec.Schema().String())
+	  for _, f := range fields {
+	  log.Println("fields " + f.String())
+	  }*/
+
+	err = wtr.Write(rec)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }
 
 func main() {
