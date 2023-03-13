@@ -73,7 +73,11 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 			case []uint8:
 				strVal = string(v.([]uint8))
 				if dateFormat, ok := cfg.TimeFields[key]; ok {
-					t, _ := timefmt.Parse(strVal, dateFormat)
+					t, err := timefmt.Parse(strVal, dateFormat)
+					if err != nil {
+						log.Printf("failed to parse date %s using format %s", strVal, dateFormat)
+						return output.FLB_ERROR
+					}
 					int64Val = t.Unix()
 					log.Printf("Key=%s Int64 Value=%d", key, int64Val)
 				} else {
@@ -88,8 +92,9 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 				strVal = fmt.Sprintf("%v", v)
 			}
 
-			sendPayload()
 		}
+
+		sendPayload()
 	}
 
 	return output.FLB_OK
