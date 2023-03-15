@@ -21,16 +21,21 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow/ipc"
 )
+import "strconv"
 
 const PluginName = "arrow"
 const PlugingDesc = "Fluent Bit Arrow Output plugin"
 const TimeFields = "Time_Fields"
 const FlightServerUrl = "Arrow_Flight_Server_Url"
+const InferSchema = "Infer_Schema"
 
 type PluginCfg struct {
 	TimeFields           map[string]string
 	ArrowFlightServerUrl string
+	InferSchema          bool
 }
+
+var config PluginCfg
 
 //export FLBPluginRegister
 func FLBPluginRegister(def unsafe.Pointer) int {
@@ -42,19 +47,19 @@ func FLBPluginRegister(def unsafe.Pointer) int {
 func FLBPluginInit(plugin unsafe.Pointer) int {
 	timeFields := output.FLBPluginConfigKey(plugin, TimeFields)
 	serverUrl := output.FLBPluginConfigKey(plugin, FlightServerUrl)
-	pluginCfg, err := createPluginConfig(timeFields, serverUrl)
+	inferSchema := output.FLBPluginConfigKey(plugin, InferSchema)
 
+	config, err := createPluginConfig(timeFields, serverUrl, inferSchema)
 	if err != nil {
 		return output.FLB_ERROR
 	}
 
-	output.FLBPluginSetContext(plugin, pluginCfg)
+	output.FLBPluginSetContext(plugin, config)
 	return output.FLB_OK
 }
 
 //export FLBPluginFlushCtx
 func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int {
-	cfg := output.FLBPluginGetContext(ctx).(PluginCfg)
 	dec := output.NewDecoder(data, int(length))
 
 	for {
@@ -69,10 +74,10 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 			var int64Val int64
 			var flt64Val float64
 
-			switch v.(type) {
+			switch v := v.(type) {
 			case []uint8:
-				strVal = string(v.([]uint8))
-				if dateFormat, ok := cfg.TimeFields[key]; ok {
+				strVal = string(v)
+				if dateFormat, ok := config.TimeFields[key]; ok {
 					t, err := timefmt.Parse(strVal, dateFormat)
 					if err != nil {
 						log.Printf("failed to parse date %s using format %s", strVal, dateFormat)
@@ -84,14 +89,13 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 					log.Printf("Key=%s String Value=%s", key, strVal)
 				}
 			case float64:
-				flt64Val = v.(float64)
+				flt64Val = v
 				log.Printf("Key=%s Float64 Value=%f", key, flt64Val)
 			case nil:
 				strVal = ""
 			default:
 				strVal = fmt.Sprintf("%v", v)
 			}
-
 		}
 
 		sendPayload()
@@ -105,7 +109,7 @@ func FLBPluginExit() int {
 	return output.FLB_OK
 }
 
-func createPluginConfig(timeFields string, serverUrl string) (PluginCfg, error) {
+func createPluginConfig(timeFields string, serverUrl string, inferSchema string) (PluginCfg, error) {
 	pluginCfg := PluginCfg{
 		TimeFields: make(map[string]string),
 	}
@@ -125,6 +129,13 @@ func createPluginConfig(timeFields string, serverUrl string) (PluginCfg, error) 
 	if serverUrl == "" {
 		return pluginCfg, fmt.Errorf("mandatory parameter %s not configured.", FlightServerUrl)
 	}
+	//TO-DO: validate the serverUrl
+	pluginCfg.ArrowFlightServerUrl = serverUrl
+	s, err := strconv.ParseBool(inferSchema)
+	if err != nil {
+		log.Fatal(err)
+	}
+	pluginCfg.InferSchema = s
 
 	return pluginCfg, nil
 }
