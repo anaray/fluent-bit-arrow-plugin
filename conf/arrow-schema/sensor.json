@@ -1,0 +1,31 @@
+{
+    "schema": {
+        "fields": [
+            {
+                "name": "",
+                "type": {
+                    "name": "int",
+                    "isSigned": true,
+                    "bitWidth": 8
+                },
+                "nullable": true,
+                "children": []
+            }
+        ],
+        "metadata": [
+            {
+                "key": "k1",
+                "value": "v1"
+            },
+            {
+                "key": "k2",
+                "value": "v2"
+            },
+            {
+                "key": "k3",
+                "value": "v3"
+            }
+        ]
+    }
+}
+// 2023-01-28T13:22:01Z AAAA 40.00
