@@ -10,7 +10,7 @@
                 "children": []
             },
             {
-                "name": "SENSOR",
+                "name": "VEHICLE_PLATE",
                 "type": {
                     "name": "utf8"
                 },
@@ -18,20 +18,10 @@
                 "children": []
             },
             {
-                "name": "VALUE",
+                "name": "SPEED",
                 "type": {
                     "name": "floatingpoint",
                     "precision": "DOUBLE"
-                },
-                "nullable": true,
-                "children": []
-            },
-            {
-                "name": "LOCATION_ID",
-                "type": {
-                    "name": "int",
-                    "isSigned": true,
-                    "bitWidth": 64
                 },
                 "nullable": true,
                 "children": []
@@ -53,5 +43,3 @@
         ]
     }
 }
-// 2023-01-28T13:22:01Z AAAA 40.00
-//    Regex ^(?<MEASUREMENT_DATE>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) (?<SENSOR>[^ ]*) (?<VALUE>[^ ]*) (?<LOCATION_ID>[^ ]*)
