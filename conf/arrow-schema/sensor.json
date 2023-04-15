@@ -4,7 +4,9 @@
             {
                 "name": "MEASUREMENT_DATE",
                 "type": {
-                    "name": "utf8"
+                    "name": "timestamp",
+                    "unit": "MILLISECOND",
+                    "timezone": "UTC"
                 },
                 "nullable": true,
                 "children": []

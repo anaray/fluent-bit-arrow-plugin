@@ -183,36 +183,40 @@ func (p *FluentArrowPlugin) Create(ctx unsafe.Pointer) (*PluginContext, error) {
 	return &c, nil
 }
 
-func (p FluentArrowPlugin) WriteString(pluginInd string, fieldName string, values []string, valid []bool) {
-	log.Print("PluginId :" + pluginInd)
+func (p FluentArrowPlugin) WriteString(pluginId string, fieldName string, values []string, valid []bool) {
+	log.Print("PluginId :" + pluginId)
 	log.Print("fieldName :" + fieldName)
 	//pick the correct builder and append value to the field
-	p.contexts[pluginInd].builder.fieldIndex[fieldName].(*array.StringBuilder).AppendValues(values, valid)
+	p.contexts[pluginId].builder.fieldIndex[fieldName].(*array.StringBuilder).AppendValues(values, valid)
 }
 
-func (p FluentArrowPlugin) WriteInt64(pluginInd string, fieldName string, values []int64, valid []bool) {
+func (p FluentArrowPlugin) WriteInt64(pluginId string, fieldName string, values []int64, valid []bool) {
 	//pick the correct builder and append value to the field
-	p.contexts[pluginInd].builder.fieldIndex[fieldName].(*array.Int64Builder).AppendValues(values, valid)
+	p.contexts[pluginId].builder.fieldIndex[fieldName].(*array.Int64Builder).AppendValues(values, valid)
 }
 
-func (p FluentArrowPlugin) WriteUInt64(pluginInd string, fieldName string, values []uint64, valid []bool) {
+func (p FluentArrowPlugin) WriteUInt64(pluginId string, fieldName string, values []uint64, valid []bool) {
 	//pick the correct builder and append value to the field
-	p.contexts[pluginInd].builder.fieldIndex[fieldName].(*array.Uint64Builder).AppendValues(values, valid)
+	p.contexts[pluginId].builder.fieldIndex[fieldName].(*array.Uint64Builder).AppendValues(values, valid)
 }
 
-func (p FluentArrowPlugin) WriteInt32(pluginInd string, fieldName string, values []int32, valid []bool) {
+func (p FluentArrowPlugin) WriteInt32(pluginId string, fieldName string, values []int32, valid []bool) {
 	//pick the correct builder and append value to the field
-	p.contexts[pluginInd].builder.fieldIndex[fieldName].(*array.Int32Builder).AppendValues(values, valid)
+	p.contexts[pluginId].builder.fieldIndex[fieldName].(*array.Int32Builder).AppendValues(values, valid)
 }
 
-func (p FluentArrowPlugin) WriteFloat64(pluginInd string, fieldName string, values []float64, valid []bool) {
+func (p FluentArrowPlugin) WriteFloat64(pluginId string, fieldName string, values []float64, valid []bool) {
 	//pick the correct builder and append value to the field
-	p.contexts[pluginInd].builder.fieldIndex[fieldName].(*array.Float64Builder).AppendValues(values, valid)
+	p.contexts[pluginId].builder.fieldIndex[fieldName].(*array.Float64Builder).AppendValues(values, valid)
 }
 
-func (p FluentArrowPlugin) WriteFloat32(pluginInd string, fieldName string, values []float32, valid []bool) {
+func (p FluentArrowPlugin) WriteFloat32(pluginId string, fieldName string, values []float32, valid []bool) {
 	//pick the correct builder and append value to the field
-	p.contexts[pluginInd].builder.fieldIndex[fieldName].(*array.Float32Builder).AppendValues(values, valid)
+	p.contexts[pluginId].builder.fieldIndex[fieldName].(*array.Float32Builder).AppendValues(values, valid)
+}
+
+func (p FluentArrowPlugin) WriteTimeStamp(pluginId string, fieldName string, values []arrow.Timestamp, valid []bool) {
+	p.contexts[pluginId].builder.fieldIndex[fieldName].(*array.TimestampBuilder).AppendValues(values, valid)
 }
 
 func parseSchema(file string) (*arrow.Schema, error) {
@@ -292,6 +296,7 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 					}
 					int64Val := t.Unix()
 					log.Printf("ctx= %s, got int64 value for key=%s value=%d", id, key, int64Val)
+					plugin.WriteTimeStamp(id, key, []arrow.Timestamp{arrow.Timestamp(int64Val)}, []bool{true})
 					//z, o := t.Zone()
 				} else {
 					log.Printf("ctx= %s, got string value for key=%s value=%s", id, key, strVal)
