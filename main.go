@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/anaray/fluent-bit-arrow-plugin/pkg/plugin"
@@ -29,12 +30,16 @@ const TimeFields = "Time_Fields"
 const FlightServerUrl = "Arrow_Flight_Server_Url"
 const InferSchema = "Infer_Schema"
 const SchemaFile = "Schema_File"
+const RecordBatchThreshold = "Record_Batch_Threshold"
 
-// FluentArrowPlugin
+// FluentArrowPlugin represents a FluentBit output plugin.
+
+// FluentBitArrowPlugin contains a map which PluginId to PluginContext
 type FluentArrowPlugin struct {
 	contexts map[string]*plugin.PluginContext
 }
 
+// NewPlugin initializes a Plugin
 func NewPlugin() plugin.Plugin {
 	return FluentArrowPlugin{
 		contexts: make(map[string]*plugin.PluginContext),
@@ -43,8 +48,12 @@ func NewPlugin() plugin.Plugin {
 
 var arrowPlugin plugin.Plugin = NewPlugin()
 
+// Create reads the FluentBit configuration block for FluentArrowPlugin.
+
+// Create reads the configuration block, validates and creates PluginContext
 func (p FluentArrowPlugin) Create(ctx unsafe.Pointer) (*plugin.PluginContext, error) {
 	errMsg := "mandatory plugin configuration [%s] missing"
+
 	c := plugin.PluginContext{
 		TimeFields: make(map[string]string),
 	}
@@ -79,7 +88,14 @@ func (p FluentArrowPlugin) Create(ctx unsafe.Pointer) (*plugin.PluginContext, er
 		return &plugin.PluginContext{}, fmt.Errorf(errMsg, FlightServerUrl)
 	}
 
-	// 4) Schema_File
+	// 4) Record_Batch_Count
+	rb, err := strconv.Atoi(output.FLBPluginConfigKey(ctx, RecordBatchThreshold))
+	if err != nil || rb == 0 {
+		return &plugin.PluginContext{}, fmt.Errorf(errMsg, RecordBatchThreshold)
+	}
+	c.RecordBatchThreshold = rb
+
+	// 5) Schema_File
 	sf := output.FLBPluginConfigKey(ctx, SchemaFile)
 	if sf == "" {
 		return &plugin.PluginContext{}, fmt.Errorf(errMsg, SchemaFile)
@@ -94,7 +110,6 @@ func (p FluentArrowPlugin) Create(ctx unsafe.Pointer) (*plugin.PluginContext, er
 	fields := s.Fields()
 	for _, f := range fields {
 		log.Printf("field name=%s , field type=%s\n ", f.Name, f.Type)
-
 	}
 
 	// Set schema to RecordBuilder
@@ -113,39 +128,48 @@ func (p FluentArrowPlugin) Create(ctx unsafe.Pointer) (*plugin.PluginContext, er
 	return &c, nil
 }
 
+// Writes given string array as a Apache Arrow columnar array
 func (p FluentArrowPlugin) WriteString(pluginId string, fieldName string, values []string, valid []bool) {
+
 	p.contexts[pluginId].Builder.FieldIndex[fieldName].(*array.StringBuilder).AppendValues(values, valid)
 }
 
+// Writes given int64 array as a Apache Arrow columnar array
 func (p FluentArrowPlugin) WriteInt64(pluginId string, fieldName string, values []int64, valid []bool) {
 	//pick the correct builder and append value to the field
 	p.contexts[pluginId].Builder.FieldIndex[fieldName].(*array.Int64Builder).AppendValues(values, valid)
 }
 
+// Writes given uint64 array as a Apache Arrow columnar array
 func (p FluentArrowPlugin) WriteUInt64(pluginId string, fieldName string, values []uint64, valid []bool) {
 	//pick the correct builder and append value to the field
 	p.contexts[pluginId].Builder.FieldIndex[fieldName].(*array.Uint64Builder).AppendValues(values, valid)
 }
 
+// Writes given int32 array as a Apache Arrow columnar array
 func (p FluentArrowPlugin) WriteInt32(pluginId string, fieldName string, values []int32, valid []bool) {
 	//pick the correct builder and append value to the field
 	p.contexts[pluginId].Builder.FieldIndex[fieldName].(*array.Int32Builder).AppendValues(values, valid)
 }
 
+// Writes given float64 array as a Apache Arrow columnar array
 func (p FluentArrowPlugin) WriteFloat64(pluginId string, fieldName string, values []float64, valid []bool) {
 	//pick the correct builder and append value to the field
 	p.contexts[pluginId].Builder.FieldIndex[fieldName].(*array.Float64Builder).AppendValues(values, valid)
 }
 
+// Writes given float32 array as a Apache Arrow columnar array
 func (p FluentArrowPlugin) WriteFloat32(pluginId string, fieldName string, values []float32, valid []bool) {
 	//pick the correct builder and append value to the field
 	p.contexts[pluginId].Builder.FieldIndex[fieldName].(*array.Float32Builder).AppendValues(values, valid)
 }
 
+// Writes given arrow timestamp array as a Apache Arrow columnar array
 func (p FluentArrowPlugin) WriteTimeStamp(pluginId string, fieldName string, values []arrow.Timestamp, valid []bool) {
 	p.contexts[pluginId].Builder.FieldIndex[fieldName].(*array.TimestampBuilder).AppendValues(values, valid)
 }
 
+// Reads a file and parses its content as Arrow Schema
 func parseSchema(file string) (*arrow.Schema, error) {
 	f, err := os.Open(file)
 	if err != nil {
@@ -238,15 +262,15 @@ func FLBPluginFlushCtx(ctx, data unsafe.Pointer, length C.int, tag *C.char) int 
 					log.Printf("ctx= %s, got default value for key=%s value=%f", id, key, strVal)
 				}
 			}
-
 		}
-		arrowPlugin.(FluentArrowPlugin).contexts[id].RecordCount++
-		if arrowPlugin.(FluentArrowPlugin).contexts[id].RecordCount > 5 {
+
+		arrowPlugin.(FluentArrowPlugin).contexts[id].RecordBatchCount++
+		if arrowPlugin.(FluentArrowPlugin).contexts[id].RecordBatchCount > arrowPlugin.(FluentArrowPlugin).contexts[id].RecordBatchThreshold {
 			//call make record and flush
 			r := arrowPlugin.(FluentArrowPlugin).contexts[id].Builder.RecordBuilder.NewRecord()
 			defer r.Release()
 			arrowPlugin.(FluentArrowPlugin).contexts[id].FlightSvc.Write(r)
-			arrowPlugin.(FluentArrowPlugin).contexts[id].RecordCount = 0
+			arrowPlugin.(FluentArrowPlugin).contexts[id].RecordBatchCount = 0
 		}
 	}
 	return output.FLB_OK

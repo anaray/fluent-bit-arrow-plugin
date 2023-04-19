@@ -16,6 +16,8 @@
 
 // Package arrjson provides types and functions to encode and decode ARROW types and data
 // to and from JSON files.
+
+// This code is copied from Apache Arrow Golang library https://github.com/apache/arrow/blob/main/go/arrow/internal/arrjson/arrjson.go
 package arrow
 
 import (

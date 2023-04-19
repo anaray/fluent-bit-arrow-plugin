@@ -27,14 +27,15 @@ type Plugin interface {
 
 // PluginContext wraps context required for an individual plugin
 
-// Configuratiions for each plugin is stored in this context
+// Configurations for each plugin is stored in this context
 type PluginContext struct {
-	Id          string
-	TimeFields  map[string]string
-	RecordCount int
-	Schema      *arrow.Schema
-	Builder     *ArrowRecordBuilder
-	FlightSvc   *ArrowFlightService
+	Id                   string
+	TimeFields           map[string]string
+	RecordBatchThreshold int
+	RecordBatchCount     int
+	Schema               *arrow.Schema
+	Builder              *ArrowRecordBuilder
+	FlightSvc            *ArrowFlightService
 }
 
 // ArrowFlightService aids and creates a Arrow Flight Client and Flight Writer.

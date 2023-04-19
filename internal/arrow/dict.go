@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This source is copied from pache Arrow Golang library https://github.com/apache/arrow/blob/main/go/arrow/internal/dictutils/dict.go
 package arrow
 
 import (
