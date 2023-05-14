@@ -34,8 +34,40 @@ type PluginContext struct {
 	RecordBatchThreshold int
 	RecordBatchCount     int
 	Schema               *arrow.Schema
-	Builder              *ArrowRecordBuilder
-	FlightSvc            *ArrowFlightService
+	//Builder              *ArrowRecordBuilder
+	//FlightSvc            *ArrowFlightService
+	RecordFlusher        *ArrowRecordFlusher
+}
+
+// ArrowRecordFlusher
+type ArrowRecordFlusher struct {
+	events    chan FlushEvent
+	Builder   *ArrowRecordBuilder
+	FlightSvc *ArrowFlightService
+}
+
+func NewArrowRecordFlusher(g FlushEventGenerator) *ArrowRecordFlusher {
+	f := &ArrowRecordFlusher{
+		events: g.create(),
+	}
+	return f
+}
+
+func (f ArrowRecordFlusher) Flush() {
+	/*for {
+		select {
+		case _ = <-f.events:
+			r := f.Builder.RecordBuilder.NewRecord()
+			f.FlightSvc.Write(r)
+			r.Release()
+		}
+	}*/
+
+	for range f.events {
+		r := f.Builder.RecordBuilder.NewRecord()
+		f.FlightSvc.Write(r)
+		r.Release()
+	}
 }
 
 // ArrowFlightService aids and creates a Arrow Flight Client and Flight Writer.
@@ -93,4 +125,8 @@ func NewRecordBuilder(schema *arrow.Schema) (*ArrowRecordBuilder, error) {
 		bldr.FieldIndex[field.Name] = b.Field(indx)
 	}
 	return bldr, nil
+}
+
+func (b ArrowRecordBuilder) Build() arrow.Record {
+	return nil
 }

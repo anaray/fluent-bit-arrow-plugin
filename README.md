@@ -19,6 +19,12 @@ Using this plugin data is converted in to columnar Arrow format at the edge itse
 
 Fluent Bit is configured using using a configuration file, more details can be found in Fluent Bit's official [documentation](https://docs.fluentbit.io/manual/administration/configuring-fluent-bit/classic-mode/configuration-file). 
 
+## Requirements
+
+1. The data __must__ have a well defined schema. The schema must be defined in Apache Arrow Schema format.
+
+
+
 ### Plugin Configuration
 
 ```bash
